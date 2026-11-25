@@ -12,5 +12,8 @@ data/uploads/*
 public/assets/IMG_20210913_0002.webp
 public/assets/bg-watercolor-pc.jpg
 
+# Local deploy archives (contain DB/uploads/.env — never push)
+deploy-bundles/
+
 .DS_Store
 *.log

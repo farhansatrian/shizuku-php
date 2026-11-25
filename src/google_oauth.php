@@ -100,7 +100,7 @@ function handle_google_oauth_start(): never
     $redirectTarget = sanitize_oauth_redirect($_GET['redirect'] ?? null);
 
     if (!$config) {
-        redirect_to($baseUrl . '/account?oauthError=GOOGLE_NOT_CONFIGURED');
+        google_oauth_error_redirect($baseUrl, 'GOOGLE_NOT_CONFIGURED', is_external_redirect_target($redirectTarget) ? $redirectTarget : null);
     }
 
     $state = b64url_encode(random_bytes(24));
@@ -130,9 +130,13 @@ function handle_google_oauth_start(): never
     redirect_to('https://accounts.google.com/o/oauth2/v2/auth?' . $query);
 }
 
-function google_oauth_error_redirect(string $baseUrl, string $code): never
+function google_oauth_error_redirect(string $baseUrl, string $code, ?string $externalTarget = null): never
 {
     set_cookie_safe(GOOGLE_OAUTH_COOKIE_NAME, '', 0, '/api/ecosystem/google');
+    if ($externalTarget !== null && is_external_redirect_target($externalTarget)) {
+        $sep = str_contains($externalTarget, '?') ? '&' : '?';
+        redirect_to($externalTarget . $sep . 'oauthError=' . rawurlencode($code));
+    }
     redirect_to($baseUrl . '/account?oauthError=' . rawurlencode($code));
 }
 
@@ -140,32 +144,35 @@ function handle_google_oauth_callback(): never
 {
     $baseUrl = resolve_public_base_url();
     $config = google_oauth_config();
+    $cookieToken = (string) ($_COOKIE[GOOGLE_OAUTH_COOKIE_NAME] ?? '');
+    $stored = $cookieToken !== '' ? jwt_verify($cookieToken, google_oauth_state_secret()) : null;
+    $externalReturn = ($stored && is_string($stored['redirect'] ?? null) && is_external_redirect_target($stored['redirect']))
+        ? sanitize_oauth_redirect($stored['redirect'])
+        : null;
 
     if (!$config) {
-        google_oauth_error_redirect($baseUrl, 'GOOGLE_NOT_CONFIGURED');
+        google_oauth_error_redirect($baseUrl, 'GOOGLE_NOT_CONFIGURED', $externalReturn);
     }
 
     if (!empty($_GET['error'])) {
         $err = (string) $_GET['error'];
-        google_oauth_error_redirect($baseUrl, $err === 'access_denied' ? 'GOOGLE_CANCELLED' : 'GOOGLE_AUTH_FAILED');
+        google_oauth_error_redirect($baseUrl, $err === 'access_denied' ? 'GOOGLE_CANCELLED' : 'GOOGLE_AUTH_FAILED', $externalReturn);
     }
 
     $code = (string) ($_GET['code'] ?? '');
     $returnedState = (string) ($_GET['state'] ?? '');
-    $cookieToken = (string) ($_COOKIE[GOOGLE_OAUTH_COOKIE_NAME] ?? '');
 
     if ($code === '' || $returnedState === '' || $cookieToken === '') {
-        google_oauth_error_redirect($baseUrl, 'GOOGLE_AUTH_FAILED');
+        google_oauth_error_redirect($baseUrl, 'GOOGLE_AUTH_FAILED', $externalReturn);
     }
 
-    $stored = jwt_verify($cookieToken, google_oauth_state_secret());
     if (
         !$stored ||
         !is_string($stored['state'] ?? null) ||
         !is_string($stored['codeVerifier'] ?? null) ||
         !hash_equals($stored['state'], $returnedState)
     ) {
-        google_oauth_error_redirect($baseUrl, 'GOOGLE_AUTH_FAILED');
+        google_oauth_error_redirect($baseUrl, 'GOOGLE_AUTH_FAILED', $externalReturn);
     }
 
     $callbackUri = $baseUrl . '/api/ecosystem/google/callback';
@@ -184,13 +191,13 @@ function handle_google_oauth_callback(): never
     );
 
     if ($tokenResp['status'] < 200 || $tokenResp['status'] >= 300) {
-        google_oauth_error_redirect($baseUrl, 'GOOGLE_AUTH_FAILED');
+        google_oauth_error_redirect($baseUrl, 'GOOGLE_AUTH_FAILED', $externalReturn);
     }
 
     $tokenData = json_decode($tokenResp['body'], true);
     $accessToken = is_array($tokenData) ? (string) ($tokenData['access_token'] ?? '') : '';
     if ($accessToken === '') {
-        google_oauth_error_redirect($baseUrl, 'GOOGLE_AUTH_FAILED');
+        google_oauth_error_redirect($baseUrl, 'GOOGLE_AUTH_FAILED', $externalReturn);
     }
 
     $userInfoResp = google_http_request(
@@ -199,12 +206,12 @@ function handle_google_oauth_callback(): never
         ['Authorization: Bearer ' . $accessToken]
     );
     if ($userInfoResp['status'] < 200 || $userInfoResp['status'] >= 300) {
-        google_oauth_error_redirect($baseUrl, 'GOOGLE_AUTH_FAILED');
+        google_oauth_error_redirect($baseUrl, 'GOOGLE_AUTH_FAILED', $externalReturn);
     }
 
     $profile = json_decode($userInfoResp['body'], true);
     if (!is_array($profile) || empty($profile['email']) || ($profile['email_verified'] ?? false) !== true) {
-        google_oauth_error_redirect($baseUrl, 'GOOGLE_EMAIL_UNVERIFIED');
+        google_oauth_error_redirect($baseUrl, 'GOOGLE_EMAIL_UNVERIFIED', $externalReturn);
     }
 
     $email = strtolower(trim((string) $profile['email']));
