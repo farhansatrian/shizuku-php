@@ -1,0 +1,16 @@
+# Local secrets & runtime SQLite/uploads
+.env
+.env.local
+.env.production
+data/*.db
+data/*.db-wal
+data/*.db-shm
+data/uploads/*
+!data/uploads/.gitkeep
+
+# Copyrighted/local visual assets placed manually on server
+public/assets/IMG_20210913_0002.webp
+public/assets/bg-watercolor-pc.jpg
+
+.DS_Store
+*.log
