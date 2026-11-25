@@ -37,6 +37,95 @@ function sanitize_shikas_accounts(mixed $raw): array
     return $clean;
 }
 
+function sanitize_shikas_reimburse(mixed $raw, int $maxAmount): ?array
+{
+    if (!is_array($raw) || $maxAmount <= 0) {
+        return null;
+    }
+
+    $rawEntries = is_array($raw['entries'] ?? null) ? $raw['entries'] : [];
+    $entries = [];
+    $running = 0;
+
+    foreach (array_slice($rawEntries, 0, 50) as $entry) {
+        if (!is_array($entry)) {
+            continue;
+        }
+        $amt = max(0, (int) round((float) ($entry['amountIdr'] ?? 0)));
+        if ($amt <= 0) {
+            continue;
+        }
+        $remaining = $maxAmount - $running;
+        if ($remaining <= 0) {
+            break;
+        }
+        $clamped = min($amt, $remaining);
+        $running += $clamped;
+
+        $entryId = trim((string) ($entry['id'] ?? ''));
+        if ($entryId === '' || strlen($entryId) > 80) {
+            $entryId = 'rmb-' . bin2hex(random_bytes(4));
+        }
+
+        $entryDate = (string) ($entry['date'] ?? '');
+        if (!preg_match('/^\d{4}-\d{2}-\d{2}$/', $entryDate)) {
+            $entryDate = substr(now_iso(), 0, 10);
+        }
+
+        $entryCreatedAt = trim((string) ($entry['createdAt'] ?? ''));
+        if ($entryCreatedAt === '' || strlen($entryCreatedAt) > 64) {
+            $entryCreatedAt = now_iso();
+        }
+
+        $cleanEntry = [
+            'id' => $entryId,
+            'date' => $entryDate,
+            'amountIdr' => $clamped,
+            'createdAt' => $entryCreatedAt,
+        ];
+
+        $accId = trim((string) ($entry['accountId'] ?? ''));
+        if ($accId !== '') {
+            $cleanEntry['accountId'] = substr($accId, 0, 80);
+        }
+
+        $entryNote = trim((string) ($entry['note'] ?? ''));
+        if ($entryNote !== '') {
+            $cleanEntry['note'] = mb_substr($entryNote, 0, 120);
+        }
+
+        $entries[] = $cleanEntry;
+    }
+
+    $status = ($running >= $maxAmount || ($raw['status'] ?? '') === 'settled')
+        ? 'settled'
+        : 'pending';
+
+    $out = [
+        'status' => $status,
+        'entries' => $entries,
+    ];
+
+    $expected = isset($raw['expectedIdr']) ? (int) round((float) $raw['expectedIdr']) : 0;
+    if ($expected > 0) {
+        $out['expectedIdr'] = min($maxAmount, $expected);
+    }
+
+    $from = trim((string) ($raw['from'] ?? ''));
+    if ($from !== '') {
+        $out['from'] = mb_substr($from, 0, 80);
+    }
+
+    if ($status === 'settled') {
+        $settledAt = trim((string) ($raw['settledAt'] ?? ''));
+        if ($settledAt !== '' && strlen($settledAt) <= 64) {
+            $out['settledAt'] = $settledAt;
+        }
+    }
+
+    return $out;
+}
+
 function handle_shikas_store_get(): never
 {
     $user = get_ecosystem_user();
@@ -84,6 +173,13 @@ function handle_shikas_store_get(): never
         }
         if ((int) ($r['feeIdr'] ?? 0) > 0) {
             $item['feeIdr'] = (int) $r['feeIdr'];
+        }
+        if ($type === 'expense' && !empty($r['reimburseJson'])) {
+            $decodedReimburse = safe_json_decode((string) $r['reimburseJson'], null);
+            $cleanReimburse = sanitize_shikas_reimburse($decodedReimburse, (int) $r['amountIdr']);
+            if ($cleanReimburse !== null) {
+                $item['reimburse'] = $cleanReimburse;
+            }
         }
         $transactions[] = $item;
     }
@@ -152,6 +248,12 @@ function handle_shikas_store_put(): never
             ? substr(trim((string) $tx['toAccountId']), 0, 80)
             : null;
         $feeIdr = max(0, (int) round((float) ($tx['feeIdr'] ?? 0)));
+        $reimburseClean = ($type === 'expense' && isset($tx['reimburse']))
+            ? sanitize_shikas_reimburse($tx['reimburse'], $amount)
+            : null;
+        $reimburseJson = $reimburseClean !== null
+            ? json_encode($reimburseClean, JSON_UNESCAPED_UNICODE)
+            : null;
 
         $validTxs[] = [
             $id,
@@ -165,6 +267,7 @@ function handle_shikas_store_put(): never
             $accountId,
             $toAccountId,
             $feeIdr,
+            $reimburseJson,
             $createdAt,
         ];
     }
@@ -184,8 +287,8 @@ function handle_shikas_store_put(): never
         if (count($validTxs) > 0) {
             $ins = $pdo->prepare(
                 'INSERT INTO "ShikasTransaction"
-                 ("id","userId","type","date","amountIdr","categoryId","note","merchant","accountId","toAccountId","feeIdr","createdAt")
-                 VALUES (?,?,?,?,?,?,?,?,?,?,?,?)'
+                 ("id","userId","type","date","amountIdr","categoryId","note","merchant","accountId","toAccountId","feeIdr","reimburseJson","createdAt")
+                 VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)'
             );
             foreach ($validTxs as $row) {
                 $ins->execute($row);

@@ -170,6 +170,7 @@ CREATE TABLE IF NOT EXISTS "ShikasTransaction" (
     "accountId" TEXT,
     "toAccountId" TEXT,
     "feeIdr" INTEGER NOT NULL DEFAULT 0,
+    "reimburseJson" TEXT,
     "createdAt" TEXT NOT NULL,
     PRIMARY KEY ("userId", "id"),
     CONSTRAINT "ShikasTransaction_userId_fkey" FOREIGN KEY ("userId") REFERENCES "EcosystemUser" ("id") ON DELETE CASCADE ON UPDATE CASCADE
@@ -202,6 +203,9 @@ SQL);
     }
     if (!in_array('feeIdr', $txCols, true)) {
         $pdo->exec('ALTER TABLE "ShikasTransaction" ADD COLUMN "feeIdr" INTEGER NOT NULL DEFAULT 0;');
+    }
+    if (!in_array('reimburseJson', $txCols, true)) {
+        $pdo->exec('ALTER TABLE "ShikasTransaction" ADD COLUMN "reimburseJson" TEXT;');
     }
 
     $setCols = sqlite_table_columns($pdo, 'ShikasSettings');
