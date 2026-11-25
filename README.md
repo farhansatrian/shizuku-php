@@ -1,170 +1,218 @@
-<div align="center">
-
 # shizuku (雫) — Native PHP Edition
 
-**Minimalist personal digital hub, portfolio CMS, and central `SHIZUKU ID` identity & database server for the SHIZUKU ecosystem.**
+> **Personal Digital Hub, Portofolio CMS, dan Server Identitas Terpusat (`SHIZUKU ID`) Berbasis Native PHP 8+ & SQLite yang Ringan, Cepat, dan Tanpa Dependensi Eksternal**
 
-[![Live Hub](https://img.shields.io/badge/Live_Hub-shizuku.sitezet.com-745bc7?style=for-the-badge&logo=googlechrome&logoColor=white)](https://shizuku.sitezet.com)
-[![SHIKAS App](https://img.shields.io/badge/Companion_App-shikas.sitezet.com-2276a8?style=for-the-badge&logo=vercel&logoColor=white)](https://shikas.sitezet.com)
-[![PHP 8.1+](https://img.shields.io/badge/PHP-8.1%2B-777BB4?style=for-the-badge&logo=php&logoColor=white)](#tech-stack)
-[![SQLite](https://img.shields.io/badge/Database-SQLite_WAL-003B57?style=for-the-badge&logo=sqlite&logoColor=white)](#tech-stack)
-[![Zero Dependencies](https://img.shields.io/badge/Dependencies-Zero-10b981?style=for-the-badge)](#why-native-php)
+[![Live Deployment](https://img.shields.io/badge/Production-shizuku.sitezet.com-745bc7?style=flat-square&logo=googlechrome&logoColor=white)](https://shizuku.sitezet.com)
+[![SHIKAS Companion](https://img.shields.io/badge/Companion_App-shikas.sitezet.com-2276a8?style=flat-square&logo=sparkles&logoColor=white)](https://shikas.sitezet.com)
+[![PHP 8.1+](https://img.shields.io/badge/PHP-8.1%2B-777BB4?style=flat-square&logo=php&logoColor=white)](https://www.php.net/)
+[![SQLite WAL](https://img.shields.io/badge/SQLite-WAL_Mode-003B57?style=flat-square&logo=sqlite&logoColor=white)](https://www.sqlite.org/)
+[![Zero Dependencies](https://img.shields.io/badge/Dependencies-Zero-0d9488?style=flat-square)](#%EF%B8%8F-arsitektur--teknologi)
+[![Shared Hosting Ready](https://img.shields.io/badge/Hosting-cPanel_%2F_Apache-f97316?style=flat-square&logo=apache&logoColor=white)](#%EF%B8%8F-infrastruktur--spesifikasi-deployment)
 
-</div>
+**shizuku-php (雫)** adalah pusat digital personal (*personal hub*), portofolio/CV dinamis, sekaligus **server identitas & database terpusat (`SHIZUKU ID`)** untuk seluruh ekosistem aplikasi web **SHIZUKU** (termasuk [**SHIKAS**](https://shikas.sitezet.com) dan aplikasi pendamping berikutnya). Dibangun murni dengan **Native PHP 8.1+ & SQLite** tanpa *framework* berat, tanpa Composer, dan tanpa *runtime* Node.js—sehingga mampu berjalan sangat ringan di *shared hosting* standar (`~10–25 MB RAM` per *request*, `0 MB` saat *idle*) sambil mempertahankan tampilan editorial minimalis, *Admin Studio* 5-tab, **Sign in with Google (OAuth 2.0 + PKCE)**, serta kontrak API v5 yang 100% stabil.
 
----
-
-## Live Ecosystem
-
-| App | Role | Live URL | Repository |
-| :--- | :--- | :--- | :--- |
-| **SHIZUKU (雫)** | Personal Hub, Portfolio CMS & Central `SHIZUKU ID` Auth/DB Server | **[shizuku.sitezet.com](https://shizuku.sitezet.com)** | [`farhansatrian/shizuku-php`](https://github.com/farhansatrian/shizuku-php) *(active prod)* |
-| **SHIKAS (雫)** | Personal Cashflow, Multi-Pocket & Payday Cycle Tracker | **[shikas.sitezet.com](https://shikas.sitezet.com)** | [`farhansatrian/shikas`](https://github.com/farhansatrian/shikas) |
-| **SHIZUKU (Next.js)** | Docker / VPS Archive Edition (identical UI/UX & API contract) | — | [`farhansatrian/shizuku`](https://github.com/farhansatrian/shizuku) |
+🔗 **Akses Production Live**: [https://shizuku.sitezet.com](https://shizuku.sitezet.com)  
+🔗 **Aplikasi Pendamping (SHIKAS)**: [https://shikas.sitezet.com](https://shikas.sitezet.com)
 
 ---
 
-## Architecture
+## 🌟 Fitur & Modul Utama
 
-`shizuku-php` acts as both a **personal portfolio/CMS** and the **central identity & private cloud storage hub** for companion apps across `*.sitezet.com`:
+1. **Beranda Galeri & Pengalaman Editorial Minimalis (`/`)**
+   - Mengusung estetika pastel Jepang yang tenang dengan latar *watercolor* resolusi tinggi, efek rintik hujan (*Shizuku rain layer*) yang halus, dan animasi *splash* sekali per sesi (*sessionStorage guard*).
+   - Desain responsif menyeluruh mulai dari layar mobile kompak (`360px` / `390px`) hingga desktop lebar (`1440px+`) dengan *mobile navigation drawer* bergaya minimalis.
+
+2. **Pusat Aplikasi Ekosistem (`/workspace`)**
+   - Menampilkan katalog terpusat seluruh aplikasi ekosistem (**SHIZUKU**, **SHIKAS**, **SHIKOST**, dan aplikasi berikutnya) beserta kategori, badge, dan status aktif.
+   - Dilengkapi kartu status **SHIZUKU ID** aktif yang menampilkan akun terhubung serta akses cepat ke halaman akun atau aplikasi terkait.
+
+3. **Portofolio CV & Galeri Sertifikat (`/portfolio`)**
+   - Menyajikan rekam jejak terstruktur dalam 3 pilar utama: **Education**, **Work**, dan **Organization**.
+   - Mendukung **pengelompokan organisasi induk (*parent-organization grouping*)** sehingga beberapa peran dalam satu organisasi tampil rapi dalam satu kartu terpadu.
+   - Galeri **Certificates** interaktif dilengkapi *modal lightbox* pratinjau gambar resolusi penuh dan pengaturan urutan tampilan.
+
+4. **Profil Personal & Dwibahasa Instan (`/about` & `EN | ID`)**
+   - Halaman narasi personal, fokus keahlian, dan tautan kontak/sosial yang seluruh isinya dikelola melalui database.
+   - **Switch Bahasa Instan (`EN | ID`)** dengan *English* sebagai default—mengubah seluruh label UI sekaligus konten dwibahasa dari database secara langsung tanpa *reload*.
+
+5. **Portal Identitas Terpusat — SHIZUKU ID (`/account`)**
+   - Satu akun untuk masuk ke seluruh ekosistem **SHIZUKU** (termasuk sinkronisasi data pribadi di **SHIKAS**).
+   - Mendukung registrasi & login **Email + Password** (`password_hash` / `bcrypt`) serta **Sign in with Google (OAuth 2.0 + PKCE S256)**.
+   - Menampilkan ringkasan jumlah transaksi **SHIKAS** yang tersinkron secara *real-time* serta tombol peluncur langsung ke `https://shikas.sitezet.com`.
+
+6. **Admin Studio CMS 5-Tab (`/admin`)**
+   - Panel administrasi *full-CRUD* yang terpisah penuh dari sesi pengguna ekosistem (`shizuku_admin_session` vs `shizuku_eco_session`):
+     - **Profile**: Ubah nama brand, biodata dwibahasa (`EN`/`ID`), tautan sosial, dan aset visual utama.
+     - **Work**: Tambah, edit, sembunyikan, dan atur urutan kartu aplikasi ekosistem.
+     - **Portfolio**: Kelola riwayat Pendidikan, Pekerjaan, dan Organisasi lengkap dengan *chips* pengelompokan organisasi induk.
+     - **Certificates**: Unggah gambar sertifikat (validasi *magic bytes* server-side), edit keterangan, dan atur urutan tampil.
+     - **Security**: Rotasi kata sandi administrator secara aman langsung dari antarmuka web.
+
+7. **Single Sign-On (SSO) Lintas Subdomain & Bearer Token**
+   - Menggunakan token **JWT HS256 (RFC 7519)** buatan murni tanpa pustaka pihak ketiga.
+   - Mendukung autentikasi ganda: *HttpOnly Cookie* lintas subdomain (`.sitezet.com`) **dan** header `Authorization: Bearer <token>` (dengan aturan passthrough khusus di `.htaccess` agar tetap bekerja pada Apache CGI/FastCGI).
+   - Alur **Google OAuth 2.0 + PKCE** dilengkapi *encrypted state cookie*, daftar origin tepercaya (*anti open-redirect*), serta pengembalian `#shizuku_token=<jwt>` maupun `?oauthError=...` secara presisi ke aplikasi pendamping.
+
+8. **Penyimpanan Cloud Privat SHIKAS (Kontrak API v5)**
+   - Menyediakan endpoint `GET/PUT /api/shikas/store` dengan **isolasi ketat per `userId`** (kunci primer komposit `(userId, id)` dan `ON DELETE CASCADE`).
+   - Mendukung penuh skema v5 **SHIKAS**: daftar kantong dana (`accountsJson`), tanggal mulai siklus gajian (`cycleStartDay` `1–28`), transaksi `income | expense | transfer`, kantong sumber/tujuan (`accountId`, `toAccountId`), serta biaya admin transfer (`feeIdr`).
+
+9. **Pengerasan Keamanan & Zero-Dependency Media Streaming**
+   - Proteksi *Same-Origin CSRF Guard* pada seluruh mutasi `/api/admin/*` dan `/api/auth/*`.
+   - Pemblokiran akses web langsung ke `.env`, `src/`, `data/`, dan file `.db` melalui `.htaccess`.
+   - Validasi unggahan gambar berbasis *magic bytes* (`finfo` / signature JPEG, PNG, WebP, GIF) dengan proteksi *path traversal* saat melayani `/api/uploads/{filename}`.
+
+---
+
+## 🏗️ Arsitektur & Teknologi
 
 ```mermaid
 flowchart LR
-    U["User Browser"] -->|HTTPS| HUB["shizuku.sitezet.com<br/>(Native PHP 8+ & SQLite)"]
+    U["Browser Pengguna"] -->|HTTPS| HUB["shizuku.sitezet.com<br/>(Native PHP 8+ & SQLite)"]
     U -->|HTTPS| APP["shikas.sitezet.com<br/>(React 19 Static SPA)"]
-    APP <-->|"CORS + Bearer JWT / .sitezet.com Cookie<br/>/api/ecosystem/* & /api/shikas/store"| HUB
+    APP <-->|"CORS + Bearer JWT / Cookie .sitezet.com<br/>/api/ecosystem/* & /api/shikas/store"| HUB
     HUB <-->|"OAuth 2.0 + PKCE (S256)"| G["Google Identity"]
     HUB --- DB[("SQLite (WAL)<br/>CMS + SHIZUKU ID + SHIKAS v5")]
 ```
 
----
-
-## Key Features
-
-### Public Experience & Editorial UI
-- **Minimalist Japanese Pastel Aesthetic** — Full-bleed watercolor backdrop, subtle drifting raindrop layer, clean editorial framing, and responsive mobile drawer across `360px` to desktop.
-- **5 Dedicated Routes**:
-  - `/` **Home** — Gallery showcase with first-visit splash reveal.
-  - `/work` **Ecosystem Hub** — App launcher (`SHIZUKU`, `SHIKAS`, `SHIKOST`, and upcoming apps) + active `SHIZUKU ID` status card.
-  - `/portfolio` **CV & Records** — Education, Work, Parent-Grouped Organization timeline, and Certificate gallery with modal lightbox.
-  - `/about` **Profile** — Personal narrative, roles, focus areas, and contact links.
-  - `/account` **SHIZUKU ID** — Sign up, sign in, **Sign in with Google**, live synced entry counter, and quick launch into `SHIKAS`.
-- **Instant Bilingual Switch (`EN | ID`)** — Seamless English/Indonesian switching across UI chrome and database-managed CMS fields.
-
-### 5-Tab Admin Studio (`/admin`)
-- **Profile** — Edit bilingual name, bio, tagline, social links, and visual assets.
-- **Work** — Add, edit, reorder, toggle visibility, and manage ecosystem app cards.
-- **Portfolio** — Full CRUD for Education, Work, and Organization records (supports parent-organization grouping chips).
-- **Certificates** — Upload images (magic-byte validated), edit metadata, preview in lightbox, and reorder entries.
-- **Security** — Manage admin account email/password securely with `password_hash()` and CSRF same-origin enforcement.
-
-### Central `SHIZUKU ID` SSO & `SHIKAS` v5 Cloud Sync
-- **Dual Auth Transport** — Signed **HS256 JWT** (`RFC 7519`) delivered via `HttpOnly` cookie (optional cross-subdomain `.sitezet.com`) **and** `Authorization: Bearer <token>` header for cross-origin companion apps.
-- **Sign in with Google (OAuth 2.0 + PKCE S256)** — Stateless encrypted state cookie, strict origin allowlist against open redirects, and `#shizuku_token=<jwt>` handoff for companion SPAs.
-- **Strict Per-User Isolation** — Every companion table uses composite primary keys `(userId, id)` with `ON DELETE CASCADE`; users can only read/write their own rows.
+| Komponen | Teknologi | Keterangan |
+| :--- | :--- | :--- |
+| **Backend & Routing** | [Native PHP 8.1+](https://www.php.net/) | *Single front-controller* (`index.php`), 0 dependensi eksternal |
+| **Database** | [SQLite 3](https://www.sqlite.org/) (`PDO_SQLITE`) | Mode `WAL`, migrasi skema & *seeding* otomatis saat start pertama |
+| **Autentikasi & SSO** | Custom RFC 7519 HS256 JWT + `password_hash` | Sesi Admin & Ekosistem terpisah, mendukung Cookie & Bearer JWT |
+| **OAuth Provider** | Google OAuth 2.0 + PKCE (`S256`) | Menggunakan `cURL` (dengan *fallback* stream context) tanpa SDK eksternal |
+| **Frontend & Styling** | Precompiled Tailwind CSS + Vanilla JS | Satu stylesheet ringan `public/css/shizuku.css` (`~11 KB` gzipped) |
+| **Web Server** | Apache / LiteSpeed (`.htaccess`) | Rewrite aset statis, proteksi file privat, & passthrough `HTTP_AUTHORIZATION` |
 
 ---
 
-## Why Native PHP?
+## 🔌 Kontrak API Ekosistem (v5)
 
-Designed specifically to run **fast and reliably on standard cPanel / Apache shared hosting** with zero infrastructure overhead:
-
-| Metric | `shizuku-php` |
-| :--- | :--- |
-| **Runtime RAM** | `~10–25 MB` per request, **`0 MB` idle** |
-| **External Dependencies** | **Zero** (no Composer, no Node.js runtime, no MySQL server required) |
-| **Database** | Embedded single-file **SQLite** with automatic schema migration & seeding |
-| **CSS Footprint** | Standalone precompiled `public/css/shizuku.css` (`~11 KB` gzipped) |
-| **Hosting Compatibility** | Any PHP **8.1+** host with standard `pdo_sqlite`, `curl`, `openssl`, `fileinfo`, `mbstring` |
-
----
-
-## Ecosystem API Contract
-
-| Endpoint | Method | Auth | Purpose |
+| Endpoint | Method | Autentikasi | Keterangan |
 | :--- | :--- | :--- | :--- |
-| `/api/health` | `GET` | Public | Health check & runtime metadata |
-| `/api/ecosystem/register` | `POST` | Public (CORS) | Create `SHIZUKU ID` → `201 { user, token }` |
-| `/api/ecosystem/login` | `POST` | Public (CORS) | Sign in with email & password → `200 { user, token }` |
-| `/api/ecosystem/logout` | `POST` | Public (CORS) | Clear session cookie → `200 { ok: true }` |
-| `/api/ecosystem/me` | `GET` | Cookie / Bearer | Return active `{ user }` or `{ user: null }` |
-| `/api/ecosystem/google` | `GET` | Public | Start Google OAuth 2.0 + PKCE flow (`?redirect=...`) |
-| `/api/ecosystem/google/callback` | `GET` | OAuth State | Complete Google SSO & issue session cookie / `#shizuku_token` |
-| `/api/shikas/store` | `GET` / `PUT` | **Required** | Per-user `SHIKAS` v5 state (`accounts[]`, `cycleStartDay`, `transactions[]` with `income \| expense \| transfer` & `feeIdr`) |
+| `/api/health` | `GET` | Publik | Pemeriksaan kesehatan aplikasi & koneksi SQLite |
+| `/api/ecosystem/register` | `POST` | Publik (CORS) | Daftar akun `SHIZUKU ID` baru → `201 { user, token }` |
+| `/api/ecosystem/login` | `POST` | Publik (CORS) | Masuk dengan email & password → `200 { user, token }` |
+| `/api/ecosystem/logout` | `POST` | Publik (CORS) | Hapus cookie sesi ekosistem → `200 { ok: true }` |
+| `/api/ecosystem/me` | `GET` | Cookie / Bearer | Ambil profil sesi aktif `{ user }` atau `{ user: null }` |
+| `/api/ecosystem/google` | `GET` | Publik | Mulai login Google OAuth 2.0 + PKCE (`?redirect=...`) |
+| `/api/ecosystem/google/callback` | `GET` | OAuth State | Validasi kode Google, terbitkan sesi & redirect + `#shizuku_token` |
+| `/api/shikas/store` | `GET` / `PUT` | **Wajib (401)** | Ambil/simpan penuh state **SHIKAS** v5 terisolasi per pengguna |
+| `/api/uploads/{filename}` | `GET` | Publik | Streaming aman aset media hasil unggahan Admin Studio |
 
 ---
 
-## Project Structure
+## 🖥️ Infrastruktur & Spesifikasi Deployment
 
-```text
-shizuku-php/
-├── index.php                # Single front-controller & HTTP router
-├── .htaccess                # Apache rewrites, Bearer passthrough & security rules
-├── .env.example             # Environment configuration template
-├── data/
-│   ├── shizuku.db           # Auto-created SQLite database (gitignored)
-│   └── uploads/             # Admin-uploaded media assets (gitignored)
-├── public/
-│   ├── css/shizuku.css      # Precompiled standalone stylesheet
-│   ├── js/                  # Public UI & Admin Studio vanilla JS
-│   └── assets/              # Static artwork & fallback images
-└── src/
-    ├── config.php           # .env loader & public base URL resolver
-    ├── db.php               # SQLite PDO connection, schema migrations & seed
-    ├── jwt.php              # Zero-dependency RFC 7519 HS256 JWT implementation
-    ├── auth.php             # Admin & SHIZUKU ID session guards + CSRF checks
-    ├── google_oauth.php     # Google OAuth 2.0 + PKCE S256 SSO handler
-    ├── http.php             # CORS, Bearer extraction, cookies & JSON helpers
-    ├── uploads.php          # Safe magic-byte image upload & serving
-    ├── api/                 # REST route handlers (ecosystem, shikas, admin, auth)
-    └── views/               # Server-rendered PHP templates (home, work, portfolio, about, account, admin)
-```
+Aplikasi produksi berjalan pada **Shared Hosting (cPanel / Apache)** yang sangat hemat biaya dan bebas perawatan *container*:
+
+- **Alamat Domain Publik**: [https://shizuku.sitezet.com](https://shizuku.sitezet.com)
+- **Aplikasi Pendamping Terhubung**: [https://shikas.sitezet.com](https://shikas.sitezet.com)
+- **Runtime Server**: PHP 8.1 / 8.2 / 8.3 dengan ekstensi bawaan (`pdo_sqlite`, `curl`, `openssl`, `fileinfo`, `mbstring`)
+- **Konsumsi Memori**: `~10–25 MB` RAM saat memproses request, **`0 MB` saat idle** (tanpa proses *background* permanen)
+- **Konfigurasi SSO & CORS**:
+  - `PUBLIC_BASE_URL="https://shizuku.sitezet.com"`
+  - `ECOSYSTEM_ALLOWED_ORIGINS="https://shikas.sitezet.com"`
+  - `ECOSYSTEM_COOKIE_DOMAIN=".sitezet.com"`
+  - `COOKIE_SECURE="true"` (HTTPS aktif via AutoSSL)
+- **Google Cloud Console (Production OAuth)**:
+  - *Authorized JavaScript origin*: `https://shizuku.sitezet.com`
+  - *Authorized redirect URI*: `https://shizuku.sitezet.com/api/ecosystem/google/callback`
 
 ---
 
-## Quick Start (Local Development)
+## 🚀 Menjalankan Proyek di Lingkungan Lokal (Development)
 
-Requires **PHP 8.1+** with `pdo_sqlite` enabled (no `npm install` or `composer install` needed):
+### Prasyarat
+- **PHP 8.1** atau lebih baru (dengan ekstensi `pdo_sqlite`, `curl`, `openssl`, `mbstring` aktif)
+- Tidak memerlukan Node.js, npm, Composer, maupun server MySQL/PostgreSQL.
 
+### 1. Klon Repository
 ```bash
 git clone https://github.com/farhansatrian/shizuku-php.git
 cd shizuku-php
-cp .env.example .env
-php -S 127.0.0.1:8088 index.php
 ```
 
-Open **[http://localhost:8088](http://localhost:8088)** (and `/admin` for the Admin Studio). The SQLite database (`data/shizuku.db`) initializes automatically on the first request.
+### 2. Konfigurasi Environment Variable
+Salin contoh konfigurasi dan sesuaikan untuk lingkungan lokal:
+```bash
+cp .env.example .env
+```
+
+Contoh konfigurasi `.env` untuk *local development*:
+```env
+APP_ENV="development"
+PUBLIC_BASE_URL=""
+DATABASE_PATH="data/shizuku.db"
+UPLOAD_DIR="data/uploads"
+AUTH_SECRET="ganti_dengan_string_acak_minimal_32_karakter"
+ADMIN_USERNAME="farhan"
+ADMIN_EMAIL="farhansatria.07@gmail.com"
+ADMIN_PASSWORD="ganti_dengan_password_kuat"
+COOKIE_SECURE="false"
+ECOSYSTEM_ALLOWED_ORIGINS="http://localhost:5173,http://127.0.0.1:5173"
+ECOSYSTEM_COOKIE_DOMAIN=""
+GOOGLE_CLIENT_ID="opsional_client_id_google"
+GOOGLE_CLIENT_SECRET="opsional_client_secret_google"
+```
+
+> **Tip Lokal**: Kosongkan `PUBLIC_BASE_URL=""` saat pengembangan lokal agar cookie OAuth otomatis menyesuaikan `localhost:8088` atau `127.0.0.1:8088`. Pada server production HTTPS, isi wajib dengan `https://shizuku.sitezet.com`.
+
+### 3. Jalankan Development Server
+```bash
+php -S 127.0.0.1:8088 index.php
+```
+Database SQLite (`data/shizuku.db`) dan data awal akan dibuat otomatis pada akses pertama. Buka:
+- Situs publik: [http://localhost:8088](http://localhost:8088)
+- Admin Studio: [http://localhost:8088/admin](http://localhost:8088/admin)
+- Healthcheck API: [http://localhost:8088/api/health](http://localhost:8088/api/health)
 
 ---
 
-## Production Deployment (cPanel / Apache Shared Hosting)
+## 🧪 Verifikasi, Keamanan & Quality Gates
 
-1. Point your subdomain (e.g. `shizuku.sitezet.com`) to a document root running **PHP 8.1 / 8.2 / 8.3** with HTTPS enabled.
-2. Upload project files including hidden file `.htaccess` (which blocks public access to `.env`, `src/`, and `data/*.db`, and forwards `Authorization: Bearer` headers through CGI/FastCGI).
-3. Create `.env` from `.env.example` and configure production settings:
-   ```dotenv
-   APP_ENV="production"
-   PUBLIC_BASE_URL="https://shizuku.sitezet.com"
-   DATABASE_PATH="data/shizuku.db"
-   UPLOAD_DIR="data/uploads"
-   AUTH_SECRET="<output of: openssl rand -hex 32>"
-   ADMIN_USERNAME="admin"
-   ADMIN_EMAIL="you@example.com"
-   ADMIN_PASSWORD="<strong-initial-password>"
-   COOKIE_SECURE="true"
-   ECOSYSTEM_ALLOWED_ORIGINS="https://shikas.sitezet.com"
-   ECOSYSTEM_COOKIE_DOMAIN=".sitezet.com"
-   GOOGLE_CLIENT_ID="<your-google-oauth-client-id>"
-   GOOGLE_CLIENT_SECRET="<your-google-oauth-client-secret>"
-   ```
-4. Ensure `data/` and `data/uploads/` are writable (`chmod 755`).
-5. In **Google Cloud Console → Google Auth Platform**, register:
-   - Authorized JavaScript origin: `https://shizuku.sitezet.com`
-   - Authorized redirect URI: `https://shizuku.sitezet.com/api/ecosystem/google/callback`
-6. Verify deployment at `https://shizuku.sitezet.com/api/health`, then sign in to `/admin` → **Security** to rotate your admin password.
+Standar pemeriksaan sebelum setiap rilis atau unggah ke production:
+
+```bash
+# 1. Validasi sintaks seluruh file PHP (21 file)
+find . -maxdepth 4 -name "*.php" -not -path "./.git/*" -print0 | xargs -0 -n1 php -l
+
+# 2. Verifikasi endpoint kesehatan server
+curl -s http://127.0.0.1:8088/api/health
+```
+
+### Cek Keamanan & Integritas Terverifikasi:
+- **Anti-Tampering JWT**: Penolakan otomatis untuk token kadaluarsa, signature dimodifikasi, maupun algoritma selain `HS256`.
+- **Proteksi OAuth Open-Redirect**: Parameter `?redirect=` hanya menerima path internal (`/account`, dst.) atau origin yang terdaftar di `ECOSYSTEM_ALLOWED_ORIGINS`.
+- **Isolasi Pengguna SHIKAS**: Pengujian *cross-user* memastikan transaksi dan kantong dana antar `userId` tidak dapat saling membaca atau menimpa.
+- **Anti Path-Traversal & Validasi Media**: Hanya file gambar valid (JPEG, PNG, WebP, GIF) dengan nama ter-sanitasi yang dapat diunggah dan disajikan melalui `/api/uploads/`.
+- **Uji Integrasi Live Lintas-Origin**: Teruji langsung berpasangan dengan **SHIKAS** (registrasi, kantong dana, transaksi `income/expense/transfer + feeIdr`, siklus gajian `cycleStartDay`, reload persistence, logout/login, serta responsif mobile `360px` & `390px`).
 
 ---
 
-<div align="center">
-  Built with calm minimalism by <a href="https://shizuku.sitezet.com">Farhan Satria Nugraha</a> · Part of the <strong>SHIZUKU (雫)</strong> Ecosystem
-</div>
+## 📦 Cadangan & Pemulihan Data (Backup & Restore)
+
+Seluruh data aplikasi (CMS, akun `SHIZUKU ID`, dan transaksi **SHIKAS**) tersimpan dalam satu file `data/shizuku.db`, sementara aset gambar berada di `data/uploads/`.
+
+> **Catatan Penting SQLite WAL**: Jangan menyalin file `data/shizuku.db` mentah saat server aktif tanpa melakukan *checkpoint* atau `VACUUM INTO`, agar transaksi terbaru di file `-wal` ikut tersimpan utuh.
+
+```bash
+# Membuat salinan backup SQLite yang bersih & self-contained (aman saat server aktif)
+php -r '
+$pdo = new PDO("sqlite:data/shizuku.db");
+$pdo->exec("VACUUM INTO \"backup-shizuku-" . date("Ymd-His") . ".db\"");
+'
+
+# Arsipkan backup DB beserta folder gambar unggahan
+tar czf shizuku-full-backup-$(date +%F).tar.gz backup-shizuku-*.db data/uploads/
+```
+
+---
+
+## 📄 Lisensi & Ekosistem
+
+Proyek ini dikembangkan dan dikelola oleh **Farhan Satria Nugraha** sebagai pusat dari ekosistem web personal **SHIZUKU (雫)**:
+
+- **SHIZUKU Hub (Live)**: [https://shizuku.sitezet.com](https://shizuku.sitezet.com) · [`farhansatrian/shizuku-php`](https://github.com/farhansatrian/shizuku-php)
+- **SHIKAS Cashflow (Live)**: [https://shikas.sitezet.com](https://shikas.sitezet.com) · [`farhansatrian/shikas`](https://github.com/farhansatrian/shikas)
+- **KostKas / SHIKOST**: [`farhansatrian/kostkas`](https://github.com/farhansatrian/kostkas)
