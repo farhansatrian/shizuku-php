@@ -87,6 +87,34 @@ function sanitize_shikas_categories(mixed $raw): array
     return $clean;
 }
 
+function sanitize_shikas_color_labels(mixed $raw): array
+{
+    if (!is_array($raw)) {
+        return [];
+    }
+    $clean = [];
+    foreach ($raw as $key => $val) {
+        if (count($clean) >= 20) {
+            break;
+        }
+        $hex = strtolower(trim((string) $key));
+        if (!preg_match('/^#[0-9a-f]{3,8}$/', $hex)) {
+            continue;
+        }
+        if ($hex === '#8b5cf6') {
+            $hex = '#745bc7';
+        } elseif ($hex === '#5d5370') {
+            $hex = '#4e5d78';
+        }
+        $label = mb_substr(trim((string) $val), 0, 32);
+        if ($label === '') {
+            continue;
+        }
+        $clean[$hex] = $label;
+    }
+    return $clean;
+}
+
 function sanitize_shikas_reimburse(mixed $raw, int $maxAmount): ?array
 {
     if (!is_array($raw) || $maxAmount <= 0) {
@@ -196,6 +224,7 @@ function handle_shikas_store_get(): never
 
     $accounts = sanitize_shikas_accounts(safe_json_decode($settings['accountsJson'] ?? '[]', []));
     $categories = sanitize_shikas_categories(safe_json_decode($settings['categoriesJson'] ?? '[]', []));
+    $colorLabels = sanitize_shikas_color_labels(safe_json_decode($settings['colorLabelsJson'] ?? '{}', []));
 
     $transactions = [];
     foreach ($rows as $r) {
@@ -248,6 +277,7 @@ function handle_shikas_store_get(): never
             'privacyMode' => (bool) ($settings['privacyMode'] ?? false),
             'rainEnabled' => $settings ? (bool) $settings['rainEnabled'] : true,
             'cycleStartDay' => $cycleStartDay,
+            'colorLabels' => (object) $colorLabels,
             'shizukuWebsiteUrl' => '',
         ],
     ], 200, true);
@@ -372,21 +402,24 @@ function handle_shikas_store_put(): never
             $categoriesJson = $categories !== null
                 ? json_encode($categories, JSON_UNESCAPED_UNICODE)
                 : (string) ($existing['categoriesJson'] ?? '[]');
+            $colorLabelsJson = ($settings !== null && array_key_exists('colorLabels', $settings))
+                ? json_encode((object) sanitize_shikas_color_labels($settings['colorLabels']), JSON_UNESCAPED_UNICODE)
+                : (string) ($existing['colorLabelsJson'] ?? '{}');
             $now = now_iso();
 
             if ($existing) {
                 $upd = $pdo->prepare(
                     'UPDATE "ShikasSettings"
-                     SET "locale" = ?, "privacyMode" = ?, "rainEnabled" = ?, "cycleStartDay" = ?, "accountsJson" = ?, "categoriesJson" = ?, "updatedAt" = ?
+                     SET "locale" = ?, "privacyMode" = ?, "rainEnabled" = ?, "cycleStartDay" = ?, "accountsJson" = ?, "categoriesJson" = ?, "colorLabelsJson" = ?, "updatedAt" = ?
                      WHERE "userId" = ?'
                 );
-                $upd->execute([$locale, $privacyMode, $rainEnabled, $cycleStartDay, $accountsJson, $categoriesJson, $now, $user['id']]);
+                $upd->execute([$locale, $privacyMode, $rainEnabled, $cycleStartDay, $accountsJson, $categoriesJson, $colorLabelsJson, $now, $user['id']]);
             } else {
                 $insSet = $pdo->prepare(
-                    'INSERT INTO "ShikasSettings" ("userId","locale","privacyMode","rainEnabled","cycleStartDay","accountsJson","categoriesJson","updatedAt")
-                     VALUES (?,?,?,?,?,?,?,?)'
+                    'INSERT INTO "ShikasSettings" ("userId","locale","privacyMode","rainEnabled","cycleStartDay","accountsJson","categoriesJson","colorLabelsJson","updatedAt")
+                     VALUES (?,?,?,?,?,?,?,?,?)'
                 );
-                $insSet->execute([$user['id'], $locale, $privacyMode, $rainEnabled, $cycleStartDay, $accountsJson, $categoriesJson, $now]);
+                $insSet->execute([$user['id'], $locale, $privacyMode, $rainEnabled, $cycleStartDay, $accountsJson, $categoriesJson, $colorLabelsJson, $now]);
             }
         }
 
