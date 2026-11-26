@@ -183,6 +183,7 @@ CREATE TABLE IF NOT EXISTS "ShikasSettings" (
     "rainEnabled" BOOLEAN NOT NULL DEFAULT 1,
     "cycleStartDay" INTEGER NOT NULL DEFAULT 1,
     "accountsJson" TEXT NOT NULL DEFAULT '[]',
+    "categoriesJson" TEXT NOT NULL DEFAULT '[]',
     "updatedAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     CONSTRAINT "ShikasSettings_userId_fkey" FOREIGN KEY ("userId") REFERENCES "EcosystemUser" ("id") ON DELETE CASCADE ON UPDATE CASCADE
 );
@@ -214,6 +215,9 @@ SQL);
     }
     if (!in_array('accountsJson', $setCols, true)) {
         $pdo->exec('ALTER TABLE "ShikasSettings" ADD COLUMN "accountsJson" TEXT NOT NULL DEFAULT \'[]\';');
+    }
+    if (!in_array('categoriesJson', $setCols, true)) {
+        $pdo->exec('ALTER TABLE "ShikasSettings" ADD COLUMN "categoriesJson" TEXT NOT NULL DEFAULT \'[]\';');
     }
 }
 

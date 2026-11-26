@@ -37,6 +37,56 @@ function sanitize_shikas_accounts(mixed $raw): array
     return $clean;
 }
 
+function sanitize_shikas_categories(mixed $raw): array
+{
+    if (!is_array($raw)) {
+        return [];
+    }
+    $clean = [];
+    $seen = [];
+    foreach (array_slice($raw, 0, 60) as $cat) {
+        if (!is_array($cat)) {
+            continue;
+        }
+        $id = trim((string) ($cat['id'] ?? ''));
+        if ($id === '' || strlen($id) > 60 || isset($seen[$id])) {
+            continue;
+        }
+        $type = match ((string) ($cat['type'] ?? 'expense')) {
+            'income' => 'income',
+            'transfer' => 'transfer',
+            default => 'expense',
+        };
+        $nameEn = mb_substr(trim((string) ($cat['nameEn'] ?? $cat['nameId'] ?? '')), 0, 48);
+        $nameId = mb_substr(trim((string) ($cat['nameId'] ?? $cat['nameEn'] ?? '')), 0, 48);
+        if ($nameEn === '' && $nameId === '') {
+            continue;
+        }
+        $color = trim((string) ($cat['color'] ?? '#745bc7'));
+        if (strlen($color) < 3 || strlen($color) > 32) {
+            $color = '#745bc7';
+        }
+        $icon = trim((string) ($cat['icon'] ?? 'Receipt'));
+        if ($icon === '' || strlen($icon) > 32) {
+            $icon = 'Receipt';
+        }
+        $entry = [
+            'id' => $id,
+            'type' => $type,
+            'nameId' => $nameId !== '' ? $nameId : $nameEn,
+            'nameEn' => $nameEn !== '' ? $nameEn : $nameId,
+            'color' => $color,
+            'icon' => $icon,
+        ];
+        if (!empty($cat['isSystem'])) {
+            $entry['isSystem'] = true;
+        }
+        $seen[$id] = true;
+        $clean[] = $entry;
+    }
+    return $clean;
+}
+
 function sanitize_shikas_reimburse(mixed $raw, int $maxAmount): ?array
 {
     if (!is_array($raw) || $maxAmount <= 0) {
@@ -145,6 +195,7 @@ function handle_shikas_store_get(): never
     $settings = $setStmt->fetch();
 
     $accounts = sanitize_shikas_accounts(safe_json_decode($settings['accountsJson'] ?? '[]', []));
+    $categories = sanitize_shikas_categories(safe_json_decode($settings['categoriesJson'] ?? '[]', []));
 
     $transactions = [];
     foreach ($rows as $r) {
@@ -190,6 +241,7 @@ function handle_shikas_store_get(): never
     json_response([
         'version' => 5,
         'accounts' => $accounts,
+        'categories' => $categories,
         'transactions' => $transactions,
         'settings' => [
             'locale' => (($settings['locale'] ?? 'en') === 'id') ? 'id' : 'en',
@@ -274,6 +326,8 @@ function handle_shikas_store_put(): never
 
     $hasAccounts = array_key_exists('accounts', $body);
     $accounts = $hasAccounts ? sanitize_shikas_accounts($body['accounts']) : null;
+    $hasCategories = array_key_exists('categories', $body);
+    $categories = $hasCategories ? sanitize_shikas_categories($body['categories']) : null;
     $hasSettings = isset($body['settings']) && is_array($body['settings']);
     $settings = $hasSettings ? $body['settings'] : null;
 
@@ -295,7 +349,7 @@ function handle_shikas_store_put(): never
             }
         }
 
-        if ($settings !== null || $accounts !== null) {
+        if ($settings !== null || $accounts !== null || $categories !== null) {
             $existingStmt = $pdo->prepare('SELECT * FROM "ShikasSettings" WHERE "userId" = ? LIMIT 1');
             $existingStmt->execute([$user['id']]);
             $existing = $existingStmt->fetch();
@@ -315,21 +369,24 @@ function handle_shikas_store_put(): never
             $accountsJson = $accounts !== null
                 ? json_encode($accounts, JSON_UNESCAPED_UNICODE)
                 : (string) ($existing['accountsJson'] ?? '[]');
+            $categoriesJson = $categories !== null
+                ? json_encode($categories, JSON_UNESCAPED_UNICODE)
+                : (string) ($existing['categoriesJson'] ?? '[]');
             $now = now_iso();
 
             if ($existing) {
                 $upd = $pdo->prepare(
                     'UPDATE "ShikasSettings"
-                     SET "locale" = ?, "privacyMode" = ?, "rainEnabled" = ?, "cycleStartDay" = ?, "accountsJson" = ?, "updatedAt" = ?
+                     SET "locale" = ?, "privacyMode" = ?, "rainEnabled" = ?, "cycleStartDay" = ?, "accountsJson" = ?, "categoriesJson" = ?, "updatedAt" = ?
                      WHERE "userId" = ?'
                 );
-                $upd->execute([$locale, $privacyMode, $rainEnabled, $cycleStartDay, $accountsJson, $now, $user['id']]);
+                $upd->execute([$locale, $privacyMode, $rainEnabled, $cycleStartDay, $accountsJson, $categoriesJson, $now, $user['id']]);
             } else {
                 $insSet = $pdo->prepare(
-                    'INSERT INTO "ShikasSettings" ("userId","locale","privacyMode","rainEnabled","cycleStartDay","accountsJson","updatedAt")
-                     VALUES (?,?,?,?,?,?,?)'
+                    'INSERT INTO "ShikasSettings" ("userId","locale","privacyMode","rainEnabled","cycleStartDay","accountsJson","categoriesJson","updatedAt")
+                     VALUES (?,?,?,?,?,?,?,?)'
                 );
-                $insSet->execute([$user['id'], $locale, $privacyMode, $rainEnabled, $cycleStartDay, $accountsJson, $now]);
+                $insSet->execute([$user['id'], $locale, $privacyMode, $rainEnabled, $cycleStartDay, $accountsJson, $categoriesJson, $now]);
             }
         }
 
@@ -345,5 +402,6 @@ function handle_shikas_store_put(): never
         'ok' => true,
         'count' => count($validTxs),
         'accountsCount' => $accounts !== null ? count($accounts) : 0,
+        'categoriesCount' => $categories !== null ? count($categories) : 0,
     ], 200, true);
 }
