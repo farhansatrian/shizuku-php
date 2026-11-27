@@ -115,15 +115,67 @@ function sanitize_shikas_color_labels(mixed $raw): array
     return $clean;
 }
 
-function sanitize_shikas_reimburse(mixed $raw, int $maxAmount): ?array
+function sanitize_shikas_reimburse(mixed $raw, int $principalAmount, int $feeIdr = 0): ?array
 {
-    if (!is_array($raw) || $maxAmount <= 0) {
+    if (!is_array($raw) || $principalAmount <= 0) {
         return null;
     }
 
+    $cleanFee = max(0, $feeIdr);
+    $includeFee = !empty($raw['includeFee']) && $cleanFee > 0;
+    $maxAmount = $includeFee ? ($principalAmount + $cleanFee) : $principalAmount;
+
+    // 1. Optional multi-person payers list
+    $rawPayers = is_array($raw['payers'] ?? null) ? $raw['payers'] : [];
+    $payers = [];
+    $payerIdSet = [];
+    $fixedPayersSum = 0;
+
+    foreach (array_slice($rawPayers, 0, 20) as $p) {
+        if (!is_array($p)) {
+            continue;
+        }
+        $pName = mb_substr(trim((string) ($p['name'] ?? '')), 0, 48);
+        if ($pName === '') {
+            continue;
+        }
+        $pId = trim((string) ($p['id'] ?? ''));
+        if ($pId === '' || strlen($pId) > 80) {
+            $pId = 'pyr-' . bin2hex(random_bytes(4));
+        }
+        if (isset($payerIdSet[$pId])) {
+            continue;
+        }
+        $payerIdSet[$pId] = true;
+
+        $cleanPayer = [
+            'id' => $pId,
+            'name' => $pName,
+            'status' => (($p['status'] ?? '') === 'settled') ? 'settled' : 'pending',
+        ];
+        $pExp = isset($p['expectedIdr']) ? (int) round((float) $p['expectedIdr']) : 0;
+        if ($pExp > 0) {
+            $remTargets = max(0, $maxAmount - $fixedPayersSum);
+            $clampedExp = min($remTargets, $pExp);
+            if ($clampedExp > 0) {
+                $cleanPayer['expectedIdr'] = $clampedExp;
+                $fixedPayersSum += $clampedExp;
+            }
+        }
+        if ($cleanPayer['status'] === 'settled') {
+            $pSettledAt = trim((string) ($p['settledAt'] ?? ''));
+            if ($pSettledAt !== '' && strlen($pSettledAt) <= 64) {
+                $cleanPayer['settledAt'] = $pSettledAt;
+            }
+        }
+        $payers[] = $cleanPayer;
+    }
+
+    // 2. Repayment entries (clamped to maxAmount)
     $rawEntries = is_array($raw['entries'] ?? null) ? $raw['entries'] : [];
     $entries = [];
     $running = 0;
+    $receivedByPayer = [];
 
     foreach (array_slice($rawEntries, 0, 50) as $entry) {
         if (!is_array($entry)) {
@@ -167,6 +219,12 @@ function sanitize_shikas_reimburse(mixed $raw, int $maxAmount): ?array
             $cleanEntry['accountId'] = substr($accId, 0, 80);
         }
 
+        $payerId = trim((string) ($entry['payerId'] ?? ''));
+        if ($payerId !== '' && isset($payerIdSet[$payerId])) {
+            $cleanEntry['payerId'] = $payerId;
+            $receivedByPayer[$payerId] = ($receivedByPayer[$payerId] ?? 0) + $clamped;
+        }
+
         $entryNote = trim((string) ($entry['note'] ?? ''));
         if ($entryNote !== '') {
             $cleanEntry['note'] = mb_substr($entryNote, 0, 120);
@@ -175,7 +233,25 @@ function sanitize_shikas_reimburse(mixed $raw, int $maxAmount): ?array
         $entries[] = $cleanEntry;
     }
 
-    $status = ($running >= $maxAmount || ($raw['status'] ?? '') === 'settled')
+    // 3. Reconcile per-payer & overall settled status
+    $hasMultiPayers = count($payers) > 0;
+    $allPayersSettled = $hasMultiPayers;
+    foreach ($payers as &$p) {
+        $paid = $receivedByPayer[$p['id']] ?? 0;
+        $autoSettled =
+            $running >= $maxAmount ||
+            (isset($p['expectedIdr']) && $paid >= $p['expectedIdr']) ||
+            (($raw['status'] ?? '') === 'settled');
+        if ($autoSettled) {
+            $p['status'] = 'settled';
+        }
+        if ($p['status'] !== 'settled') {
+            $allPayersSettled = false;
+        }
+    }
+    unset($p);
+
+    $status = ($running >= $maxAmount || $allPayersSettled || ($raw['status'] ?? '') === 'settled')
         ? 'settled'
         : 'pending';
 
@@ -184,14 +260,39 @@ function sanitize_shikas_reimburse(mixed $raw, int $maxAmount): ?array
         'entries' => $entries,
     ];
 
-    $expected = isset($raw['expectedIdr']) ? (int) round((float) $raw['expectedIdr']) : 0;
-    if ($expected > 0) {
-        $out['expectedIdr'] = min($maxAmount, $expected);
+    if ($includeFee) {
+        $out['includeFee'] = true;
     }
 
-    $from = trim((string) ($raw['from'] ?? ''));
-    if ($from !== '') {
-        $out['from'] = mb_substr($from, 0, 80);
+    if ($hasMultiPayers) {
+        $out['payers'] = $payers;
+        $allHaveTarget = true;
+        $sumTargets = 0;
+        $names = [];
+        foreach ($payers as $p) {
+            $names[] = $p['name'];
+            if (isset($p['expectedIdr']) && $p['expectedIdr'] > 0) {
+                $sumTargets += $p['expectedIdr'];
+            } else {
+                $allHaveTarget = false;
+            }
+        }
+        if ($allHaveTarget && $sumTargets > 0) {
+            $out['expectedIdr'] = min($maxAmount, $sumTargets);
+        }
+        $joinedNames = mb_substr(implode(', ', $names), 0, 80);
+        if ($joinedNames !== '') {
+            $out['from'] = $joinedNames;
+        }
+    } else {
+        $expected = isset($raw['expectedIdr']) ? (int) round((float) $raw['expectedIdr']) : 0;
+        if ($expected > 0) {
+            $out['expectedIdr'] = min($maxAmount, $expected);
+        }
+        $from = trim((string) ($raw['from'] ?? ''));
+        if ($from !== '') {
+            $out['from'] = mb_substr($from, 0, 80);
+        }
     }
 
     if ($status === 'settled') {
@@ -256,7 +357,11 @@ function handle_shikas_store_get(): never
         }
         if ($type === 'expense' && !empty($r['reimburseJson'])) {
             $decodedReimburse = safe_json_decode((string) $r['reimburseJson'], null);
-            $cleanReimburse = sanitize_shikas_reimburse($decodedReimburse, (int) $r['amountIdr']);
+            $cleanReimburse = sanitize_shikas_reimburse(
+                $decodedReimburse,
+                (int) $r['amountIdr'],
+                (int) ($r['feeIdr'] ?? 0)
+            );
             if ($cleanReimburse !== null) {
                 $item['reimburse'] = $cleanReimburse;
             }
@@ -331,7 +436,7 @@ function handle_shikas_store_put(): never
             : null;
         $feeIdr = max(0, (int) round((float) ($tx['feeIdr'] ?? 0)));
         $reimburseClean = ($type === 'expense' && isset($tx['reimburse']))
-            ? sanitize_shikas_reimburse($tx['reimburse'], $amount)
+            ? sanitize_shikas_reimburse($tx['reimburse'], $amount, $feeIdr)
             : null;
         $reimburseJson = $reimburseClean !== null
             ? json_encode($reimburseClean, JSON_UNESCAPED_UNICODE)
